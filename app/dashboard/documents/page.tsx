@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NewDocumentForm } from './new-document-form'
+import { DocumentsTable, type DocumentRow } from './documents-table'
 
 const RELATED_TYPE_LABEL: Record<string, string> = {
   landlord: 'Landlord',
@@ -61,6 +62,20 @@ export default async function DocumentsPage() {
     docRows.map((d) => supabase.storage.from('documents').createSignedUrl(d.storage_path, 60 * 60))
   )
 
+  // Resolved once here (not in the client component) since it needs the
+  // server-fetched name lookups and signed URLs — the client component just
+  // filters this already-flat, already-authorized list by text.
+  const tableRows: DocumentRow[] = docRows.map((d, i) => ({
+    id: d.id,
+    fileName: d.file_name,
+    aboutLabel: `${RELATED_TYPE_LABEL[d.related_type] ?? d.related_type}: ${
+      nameByKey.get(`${d.related_type}:${d.related_id}`) ?? 'Record no longer on file'
+    }`,
+    tagLabel: TAG_LABEL[d.tag] ?? d.tag,
+    createdAt: d.created_at,
+    url: signedUrls[i].data?.signedUrl ?? null,
+  }))
+
   return (
     <div className="space-y-8">
       <div>
@@ -72,54 +87,13 @@ export default async function DocumentsPage() {
 
       <NewDocumentForm options={options} />
 
-      <div className="bg-panel border border-line rounded-xl overflow-hidden">
-        {error ? (
-          <p className="text-sm text-clay p-5">Could not load documents: {error.message}</p>
-        ) : docRows.length === 0 ? (
-          <p className="text-sm text-ink-soft p-5">No documents yet — upload the first one above.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-xs text-ink-soft uppercase tracking-wide">
-                <th className="px-5 py-3 font-medium">File</th>
-                <th className="px-5 py-3 font-medium">About</th>
-                <th className="px-5 py-3 font-medium">Type</th>
-                <th className="px-5 py-3 font-medium">Uploaded</th>
-                <th className="px-5 py-3 font-medium"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {docRows.map((d, i) => {
-                const label = nameByKey.get(`${d.related_type}:${d.related_id}`) ?? 'Record no longer on file'
-                const url = signedUrls[i].data?.signedUrl
-                return (
-                  <tr key={d.id} className="border-b border-line last:border-b-0">
-                    <td className="px-5 py-3 text-ink font-medium">{d.file_name}</td>
-                    <td className="px-5 py-3 text-ink-soft">
-                      {RELATED_TYPE_LABEL[d.related_type] ?? d.related_type}: {label}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className="text-xs uppercase tracking-wide font-medium px-2 py-0.5 rounded bg-brass/10 text-brass-deep">
-                        {TAG_LABEL[d.tag] ?? d.tag}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-ink-soft">{d.created_at.slice(0, 10)}</td>
-                    <td className="px-5 py-3 text-right">
-                      {url ? (
-                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-brass-deep font-medium">
-                          Download
-                        </a>
-                      ) : (
-                        <span className="text-ink-soft">Link unavailable</span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {error ? (
+        <div className="bg-panel border border-line rounded-xl p-5">
+          <p className="text-sm text-clay">Could not load documents: {error.message}</p>
+        </div>
+      ) : (
+        <DocumentsTable rows={tableRows} />
+      )}
     </div>
   )
 }
