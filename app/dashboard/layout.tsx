@@ -14,6 +14,7 @@ const NAV_LIVE = [
   { href: '/dashboard/valuations', label: 'Valuations' },
   { href: '/dashboard/documents', label: 'Documents' },
   { href: '/dashboard/reports', label: 'Reports' },
+  { href: '/dashboard/staff', label: 'Staff' },
 ]
 
 const NAV_COMING_SOON: string[] = []

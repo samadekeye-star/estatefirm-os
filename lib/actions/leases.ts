@@ -145,3 +145,40 @@ async function generateRentLedger(
   const { error } = await supabase.from('rent_ledger').insert(rows)
   return error ? error.message : null
 }
+
+// Manual, staff-triggered status changes. Unlike 'renewal_due' (computed at
+// display time — see lib/lease-status.ts), these two are real decisions a
+// person makes, not a date crossing a threshold, so they're stored.
+export async function serveNotice(leaseId: string): Promise<{ error: string } | null> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('leases').update({ status: 'notice_served' }).eq('id', leaseId)
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/leases')
+  revalidatePath('/dashboard')
+  return null
+}
+
+export async function markVacated(leaseId: string): Promise<{ error: string } | null> {
+  const supabase = await createClient()
+
+  const { data: lease, error: leaseError } = await supabase
+    .from('leases')
+    .select('id, unit_id')
+    .eq('id', leaseId)
+    .single()
+  if (leaseError || !lease) return { error: 'That lease could not be found.' }
+
+  const { error: updateError } = await supabase.from('leases').update({ status: 'vacated' }).eq('id', leaseId)
+  if (updateError) return { error: updateError.message }
+
+  // Best-effort: the lease is already updated, which is what matters most.
+  const { error: unitError } = await supabase.from('units').update({ status: 'vacant' }).eq('id', lease.unit_id)
+  if (unitError) {
+    return { error: `Lease marked vacated, but the unit's status couldn't be updated: ${unitError.message}` }
+  }
+
+  revalidatePath('/dashboard/leases')
+  revalidatePath('/dashboard/properties')
+  revalidatePath('/dashboard')
+  return null
+}

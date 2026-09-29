@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NewLeaseForm } from './new-lease-form'
+import { LeaseActions } from './lease-actions'
+import { displayLeaseStatus } from '@/lib/lease-status'
 
 function formatNaira(n: number) {
   return '₦' + n.toLocaleString('en-NG', { maximumFractionDigits: 0 })
@@ -61,6 +63,7 @@ export default async function LeasesPage() {
                 <th className="px-5 py-3 font-medium">Rent</th>
                 <th className="px-5 py-3 font-medium">Term</th>
                 <th className="px-5 py-3 font-medium">Status</th>
+                <th className="px-5 py-3 font-medium"></th>
               </tr>
             </thead>
             <tbody>
@@ -78,8 +81,11 @@ export default async function LeasesPage() {
                   </td>
                   <td className="px-5 py-3">
                     <span className="text-xs uppercase tracking-wide font-medium px-2 py-0.5 rounded bg-field-bg text-field">
-                      {l.status.replace('_', ' ')}
+                      {displayLeaseStatus(l.status, l.end_date).replace('_', ' ')}
                     </span>
+                  </td>
+                  <td className="px-5 py-3">
+                    <LeaseActions leaseId={l.id} status={l.status} />
                   </td>
                 </tr>
               ))}

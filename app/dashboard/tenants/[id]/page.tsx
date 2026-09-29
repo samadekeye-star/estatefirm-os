@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { displayLeaseStatus } from '@/lib/lease-status'
 
 const RENT_STATUS_LABEL: Record<string, string> = {
   due: 'Due',
@@ -121,7 +122,7 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
                     </td>
                     <td className="px-5 py-3">
                       <span className="text-xs uppercase tracking-wide font-medium px-2 py-0.5 rounded bg-brass/10 text-brass-deep">
-                        {l.status.replace('_', ' ')}
+                        {displayLeaseStatus(l.status, l.end_date).replace('_', ' ')}
                       </span>
                     </td>
                   </tr>

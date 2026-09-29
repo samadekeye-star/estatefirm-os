@@ -1,8 +1,10 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentFirmId } from './helpers'
+import { getCurrentFirmId, getCurrentRole } from './helpers'
 import { revalidatePath } from 'next/cache'
+
+const APPROVER_ROLES = ['owner', 'senior_surveyor'] as const
 
 export type ValuationActionState = { error: string } | null
 
@@ -118,6 +120,16 @@ export async function advanceValuationStage(
   if (nextStage === 'approved') {
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) return { error: 'Your session has expired. Please sign in again.' }
+
+    // Friendly error only — valuation_jobs_update_own_firm's WITH CHECK
+    // (supabase/05_role_gating_and_invitations.sql) is what actually blocks
+    // this for anyone but an owner or senior surveyor, regardless of what
+    // this check does.
+    const role = await getCurrentRole(supabase)
+    if ('error' in role) return role
+    if (!APPROVER_ROLES.includes(role.role as (typeof APPROVER_ROLES)[number])) {
+      return { error: 'Only an owner or senior surveyor can approve a valuation.' }
+    }
 
     const { error } = await supabase
       .from('valuation_jobs')

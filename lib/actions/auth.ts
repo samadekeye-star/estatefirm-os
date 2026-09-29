@@ -103,11 +103,22 @@ export async function signup(
 // signup time and stashed firm_name/owner_name in the user's own metadata
 // instead. Safe to call on every dashboard visit: a no-op once the profile
 // exists, and the RPC itself refuses to run twice for the same user.
+//
+// Also handles the parallel case for an invited staff member: signupViaInvite()
+// below stashes an invitation_token instead of firm_name/owner_name, and
+// this calls accept_invitation() (supabase/05_role_gating_and_invitations.sql)
+// instead of create_firm_and_profile() when it finds one.
 export async function bootstrapProfileIfNeeded(): Promise<{ error: string } | null> {
   const supabase = await createClient()
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) {
     return { error: 'Not signed in.' }
+  }
+
+  const invitationToken = userData.user.user_metadata?.invitation_token as string | undefined
+  if (invitationToken) {
+    const { error } = await supabase.rpc('accept_invitation', { p_token: invitationToken })
+    return error ? { error: error.message } : null
   }
 
   const firmName = userData.user.user_metadata?.firm_name as string | undefined
@@ -125,6 +136,56 @@ export async function bootstrapProfileIfNeeded(): Promise<{ error: string } | nu
   })
 
   return error ? { error: error.message } : null
+}
+
+// The invite-accept counterpart to signup() above. Email and role come from
+// the invitation itself (looked up server-side, never trusted from the
+// form), so there's nothing here a tampered request could use to join a
+// different firm or grant itself a different role.
+export async function signupViaInvite(
+  _prevState: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const token = formData.get('token') as string
+  const name = formData.get('name') as string
+  const password = formData.get('password') as string
+
+  if (!token || !name || !password) {
+    return { error: 'All fields are required.' }
+  }
+  if (password.length < 8) {
+    return { error: 'Password must be at least 8 characters.' }
+  }
+
+  const supabase = await createClient()
+
+  const { data: invitationData, error: invitationError } = await supabase
+    .rpc('get_invitation_by_token', { p_token: token })
+    .single()
+  const invitation = invitationData as { firm_name: string; role: string; email: string; valid: boolean } | null
+
+  if (invitationError || !invitation || !invitation.valid) {
+    return { error: 'This invitation is invalid or has expired.' }
+  }
+
+  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    email: invitation.email,
+    password,
+    options: { data: { invitation_token: token, invitee_name: name } },
+  })
+  if (signUpError) return { error: signUpError.message }
+  if (!signUpData.user) return { error: 'Could not create the account. Please try again.' }
+
+  if (!signUpData.session) {
+    redirect('/signup/check-email')
+  }
+
+  const { error: rpcError } = await supabase.rpc('accept_invitation', { p_token: token })
+  if (rpcError) {
+    return { error: `Account created, but joining the firm failed: ${rpcError.message}` }
+  }
+
+  redirect('/dashboard')
 }
 
 export async function logout() {

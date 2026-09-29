@@ -15,7 +15,7 @@ export default function CheckEmailPage() {
         <h1 className="font-serif text-lg font-semibold text-ink mb-2">Check your email</h1>
         <p className="text-sm text-ink-soft">
           We&rsquo;ve sent a confirmation link to the email address you signed up with. Click it, then come back
-          and sign in &mdash; your firm&rsquo;s workspace will be set up automatically on your first visit.
+          and sign in &mdash; your account will finish setting up automatically on your first visit.
         </p>
         <Link href="/login" className="inline-block mt-6 text-sm text-brass-deep font-medium">
           Back to sign in

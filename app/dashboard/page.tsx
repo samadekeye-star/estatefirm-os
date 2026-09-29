@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { displayLeaseStatus } from '@/lib/lease-status'
 
 function formatNaira(n: number) {
   return '₦' + n.toLocaleString('en-NG', { maximumFractionDigits: 0 })
@@ -60,10 +61,16 @@ export default async function DashboardPage() {
       .lt('due_date', todayISOForOverdue())
       .order('due_date', { ascending: true })
       .limit(5),
+    // Same principle as "Overdue rent" above: nothing sets 'renewal_due' on
+    // its own, so an active lease within the renewal window is matched
+    // directly here rather than relying on a stored status that would
+    // otherwise never change. 'notice_served' is a real, manually-set
+    // status (see lib/actions/leases.ts → serveNotice), so that one is
+    // still matched as a stored value.
     supabase
       .from('leases')
       .select('id, end_date, status, tenants ( name ), units ( label, properties ( name ) )')
-      .in('status', ['renewal_due', 'notice_served'])
+      .or(`status.eq.notice_served,and(status.eq.active,end_date.lte.${inDaysISO(60)})`)
       .order('end_date', { ascending: true })
       .limit(5),
   ])
@@ -139,7 +146,7 @@ export default async function DashboardPage() {
                     </p>
                   </div>
                   <span className="text-xs uppercase tracking-wide text-brass-deep font-medium">
-                    {row.status.replace('_', ' ')}
+                    {displayLeaseStatus(row.status, row.end_date).replace('_', ' ')}
                   </span>
                 </li>
               ))}

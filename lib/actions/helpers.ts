@@ -26,3 +26,30 @@ export async function getCurrentFirmId(
 
   return { firmId: profile.firm_id as string }
 }
+
+// Same pattern as getCurrentFirmId, for actions that need to check the
+// caller's role before doing something sensitive (approving a valuation,
+// inviting staff). This is a friendly-error convenience only — the actual
+// enforcement is in RLS (public.current_role(), see supabase/05_*.sql),
+// which rejects the write regardless of what this check does.
+export async function getCurrentRole(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>
+): Promise<{ role: string } | { error: string }> {
+  const { data: userData } = await supabase.auth.getUser()
+  if (!userData.user) {
+    return { error: 'Your session has expired. Please sign in again.' }
+  }
+
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userData.user.id)
+    .single()
+
+  if (error || !profile) {
+    return { error: 'Could not determine your role. Please sign in again.' }
+  }
+
+  return { role: profile.role as string }
+}
