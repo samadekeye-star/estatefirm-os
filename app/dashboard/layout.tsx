@@ -6,14 +6,13 @@ import { logout, bootstrapProfileIfNeeded } from '@/lib/actions/auth'
 const NAV_LIVE = [
   { href: '/dashboard', label: 'Overview' },
   { href: '/dashboard/landlords', label: 'Landlords' },
+  { href: '/dashboard/properties', label: 'Properties & units' },
+  { href: '/dashboard/tenants', label: 'Tenants' },
+  { href: '/dashboard/leases', label: 'Leases' },
+  { href: '/dashboard/valuations', label: 'Valuations' },
 ]
 
-const NAV_COMING_SOON = [
-  'Properties & units',
-  'Tenants & leases',
-  'Valuations',
-  'Documents',
-]
+const NAV_COMING_SOON = ['Documents']
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
