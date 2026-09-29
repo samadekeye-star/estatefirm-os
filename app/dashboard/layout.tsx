@@ -11,9 +11,10 @@ const NAV_LIVE = [
   { href: '/dashboard/leases', label: 'Leases' },
   { href: '/dashboard/rent', label: 'Rent ledger' },
   { href: '/dashboard/valuations', label: 'Valuations' },
+  { href: '/dashboard/documents', label: 'Documents' },
 ]
 
-const NAV_COMING_SOON = ['Documents']
+const NAV_COMING_SOON: string[] = []
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
