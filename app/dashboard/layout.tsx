@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { logout, bootstrapProfileIfNeeded } from '@/lib/actions/auth'
+import { GlobalSearch } from './global-search'
 
 const NAV_LIVE = [
   { href: '/dashboard', label: 'Overview' },
@@ -104,7 +105,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 p-8">{children}</main>
+      <main className="flex-1 min-w-0 p-8">
+        <div className="mb-6">
+          <GlobalSearch />
+        </div>
+        {children}
+      </main>
     </div>
   )
 }
