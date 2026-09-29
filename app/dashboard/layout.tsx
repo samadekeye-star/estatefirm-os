@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { logout } from '@/lib/actions/auth'
+import { logout, bootstrapProfileIfNeeded } from '@/lib/actions/auth'
 
 const NAV_LIVE = [
   { href: '/dashboard', label: 'Overview' },
@@ -25,11 +25,28 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // profiles_select_same_firm lets this read any profile in the same firm,
   // but we only ever ask for our own row here.
-  const { data: profile } = await supabase
+  let { data: profile } = await supabase
     .from('profiles')
     .select('name, role, firms ( name )')
     .eq('id', userData.user.id)
     .single()
+
+  // A signed-in user with no profile row is someone whose signup couldn't
+  // create their firm yet — email confirmation was required, so there was
+  // no session at signup time (see lib/actions/auth.ts). Finish that setup
+  // now that they're actually logged in; harmless to attempt otherwise,
+  // since it's a no-op once the profile already exists.
+  if (!profile) {
+    const bootstrapResult = await bootstrapProfileIfNeeded()
+    if (!bootstrapResult) {
+      const { data: retried } = await supabase
+        .from('profiles')
+        .select('name, role, firms ( name )')
+        .eq('id', userData.user.id)
+        .single()
+      profile = retried
+    }
+  }
 
   const firmName = (profile?.firms as unknown as { name: string } | null)?.name ?? 'Your firm'
 

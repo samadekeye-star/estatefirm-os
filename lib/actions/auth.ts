@@ -54,16 +54,29 @@ export async function signup(
 
   const supabase = await createClient()
 
-  // Step 1: create the Supabase Auth user.
+  // Step 1: create the Supabase Auth user. The firm/owner name go into this
+  // user's own metadata so they survive even if there's no session yet
+  // (see below) — bootstrapProfile() reads them back later to finish setup.
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
+    options: { data: { firm_name: firmName, owner_name: ownerName } },
   })
   if (signUpError) {
     return { error: signUpError.message }
   }
   if (!signUpData.user) {
     return { error: 'Could not create the account. Please try again.' }
+  }
+
+  // If this Supabase project requires email confirmation, signUp() creates
+  // the user but does NOT start a session — auth.uid() is null until they
+  // click the confirmation link and log in. Calling the firm-creation RPC
+  // right now would (correctly) be rejected by its own "must be logged in"
+  // guard, so we don't even try; bootstrapProfile() finishes the job on
+  // their first authenticated visit to /dashboard instead.
+  if (!signUpData.session) {
+    redirect('/signup/check-email')
   }
 
   // Step 2: create the firm + profile via the RPC from 03_functions.sql.
@@ -82,6 +95,36 @@ export async function signup(
   }
 
   redirect('/dashboard')
+}
+
+// Runs the same firm-creation RPC as signup() above, but from the dashboard
+// layout, for a user who has a session and no profile yet — the case where
+// email confirmation was required, so signup() couldn't create the firm at
+// signup time and stashed firm_name/owner_name in the user's own metadata
+// instead. Safe to call on every dashboard visit: a no-op once the profile
+// exists, and the RPC itself refuses to run twice for the same user.
+export async function bootstrapProfileIfNeeded(): Promise<{ error: string } | null> {
+  const supabase = await createClient()
+  const { data: userData } = await supabase.auth.getUser()
+  if (!userData.user) {
+    return { error: 'Not signed in.' }
+  }
+
+  const firmName = userData.user.user_metadata?.firm_name as string | undefined
+  const ownerName = userData.user.user_metadata?.owner_name as string | undefined
+  if (!firmName || !ownerName) {
+    // Nothing to bootstrap from (e.g. this user signed up before this
+    // metadata was captured) — not our problem to solve here.
+    return { error: 'Missing firm details for this account.' }
+  }
+
+  const { error } = await supabase.rpc('create_firm_and_profile', {
+    p_firm_name: firmName,
+    p_subdomain: slugify(firmName),
+    p_owner_name: ownerName,
+  })
+
+  return error ? { error: error.message } : null
 }
 
 export async function logout() {
