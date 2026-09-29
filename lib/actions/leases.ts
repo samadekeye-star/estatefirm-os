@@ -54,21 +54,25 @@ export async function createLease(
     return { error: 'That unit is no longer vacant. Please pick another.' }
   }
 
-  const { error: leaseError } = await supabase.from('leases').insert({
-    firm_id: firm.firmId,
-    unit_id: unitId,
-    tenant_id: tenantId,
-    start_date: startDate,
-    end_date: endDate,
-    rent_amount: rentAmount,
-    frequency,
-  })
+  const { data: lease, error: leaseError } = await supabase
+    .from('leases')
+    .insert({
+      firm_id: firm.firmId,
+      unit_id: unitId,
+      tenant_id: tenantId,
+      start_date: startDate,
+      end_date: endDate,
+      rent_amount: rentAmount,
+      frequency,
+    })
+    .select('id')
+    .single()
 
-  if (leaseError) return { error: leaseError.message }
+  if (leaseError || !lease) return { error: leaseError?.message ?? 'Could not create the lease.' }
 
-  // Best-effort: the lease itself is what matters most and is already saved.
-  // If this second write fails, the unit will show as vacant a beat longer
-  // than it should — worth surfacing, not worth rolling back the lease for.
+  // Best-effort from here on: the lease itself is what matters most and is
+  // already saved. If either of these two follow-up writes fails, that's
+  // worth surfacing, but not worth rolling back the lease for.
   const { error: unitUpdateError } = await supabase
     .from('units')
     .update({ status: 'occupied' })
@@ -78,7 +82,66 @@ export async function createLease(
     return { error: `Lease saved, but the unit's status couldn't be updated: ${unitUpdateError.message}` }
   }
 
+  const scheduleError = await generateRentLedger(supabase, {
+    firmId: firm.firmId,
+    leaseId: lease.id as string,
+    startDate,
+    endDate,
+    rentAmount,
+    frequency: frequency as (typeof FREQUENCIES)[number],
+  })
+
+  if (scheduleError) {
+    return { error: `Lease saved, but the rent schedule couldn't be generated: ${scheduleError}` }
+  }
+
   revalidatePath('/dashboard/leases')
   revalidatePath('/dashboard/properties')
+  revalidatePath('/dashboard/rent')
+  revalidatePath('/dashboard')
   return null
+}
+
+// Builds one rent_ledger row per period from the lease's start date up to
+// (but not including) its end date — each row is what's owed for that
+// period, at 'due' status, ready for a payment to be recorded against it
+// later. A lease running well past a normal term is capped rather than
+// looped forever on a typo'd end date decades out.
+const MAX_LEDGER_ENTRIES = 120
+
+async function generateRentLedger(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  opts: {
+    firmId: string
+    leaseId: string
+    startDate: string
+    endDate: string
+    rentAmount: number
+    frequency: (typeof FREQUENCIES)[number]
+  }
+): Promise<string | null> {
+  const stepMonths = { monthly: 1, quarterly: 3, annual: 12 }[opts.frequency]
+
+  const end = new Date(opts.endDate)
+  const rows: { firm_id: string; lease_id: string; due_date: string; amount: number; status: string }[] = []
+
+  let cursor = new Date(opts.startDate)
+  let guard = 0
+  while (cursor < end && guard < MAX_LEDGER_ENTRIES) {
+    rows.push({
+      firm_id: opts.firmId,
+      lease_id: opts.leaseId,
+      due_date: cursor.toISOString().slice(0, 10),
+      amount: opts.rentAmount,
+      status: 'due',
+    })
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + stepMonths, cursor.getDate())
+    guard += 1
+  }
+
+  if (rows.length === 0) return null
+
+  const { error } = await supabase.from('rent_ledger').insert(rows)
+  return error ? error.message : null
 }

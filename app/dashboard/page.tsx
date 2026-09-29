@@ -15,6 +15,10 @@ function inDaysISO(days: number) {
   return d.toISOString().slice(0, 10)
 }
 
+function todayISOForOverdue() {
+  return new Date().toISOString().slice(0, 10)
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
 
@@ -45,10 +49,15 @@ export default async function DashboardPage() {
       .from('valuation_jobs')
       .select('id', { count: 'exact', head: true })
       .neq('stage', 'approved'),
+    // "Overdue" isn't a status anything sets on its own — nothing here runs
+    // on a schedule to flip it — so it's computed as "still due, past its
+    // due date" at query time instead of trusted from a stored flag that
+    // would otherwise just sit stale at 'due' forever.
     supabase
       .from('rent_ledger')
       .select('id, amount, due_date, leases ( tenants ( name ) )')
-      .eq('status', 'overdue')
+      .eq('status', 'due')
+      .lt('due_date', todayISOForOverdue())
       .order('due_date', { ascending: true })
       .limit(5),
     supabase

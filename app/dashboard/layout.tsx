@@ -9,6 +9,7 @@ const NAV_LIVE = [
   { href: '/dashboard/properties', label: 'Properties & units' },
   { href: '/dashboard/tenants', label: 'Tenants' },
   { href: '/dashboard/leases', label: 'Leases' },
+  { href: '/dashboard/rent', label: 'Rent ledger' },
   { href: '/dashboard/valuations', label: 'Valuations' },
 ]
 

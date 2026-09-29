@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { NewValuationForm } from './new-valuation-form'
 
@@ -45,7 +46,7 @@ export default async function ValuationsPage() {
                 <th className="px-5 py-3 font-medium">Property</th>
                 <th className="px-5 py-3 font-medium">Purpose</th>
                 <th className="px-5 py-3 font-medium">Method</th>
-                <th className="px-5 py-3 font-medium">Fee</th>
+                <th className="px-5 py-3 font-medium">Fee / Value</th>
                 <th className="px-5 py-3 font-medium">Stage</th>
               </tr>
             </thead>
@@ -54,11 +55,22 @@ export default async function ValuationsPage() {
                 const propertyName = (j.properties as unknown as { name: string } | null)?.name ?? 'Not on file'
                 return (
                   <tr key={j.id} className="border-b border-line last:border-b-0">
-                    <td className="px-5 py-3 text-ink font-medium">{j.client_name}</td>
+                    <td className="px-5 py-3">
+                      <Link
+                        href={`/dashboard/valuations/${j.id}`}
+                        className="text-ink font-medium hover:text-brass-deep"
+                      >
+                        {j.client_name}
+                      </Link>
+                    </td>
                     <td className="px-5 py-3 text-ink-soft">{propertyName}</td>
                     <td className="px-5 py-3 text-ink-soft capitalize">{j.purpose}</td>
                     <td className="px-5 py-3 text-ink-soft capitalize">{j.method}</td>
-                    <td className="px-5 py-3 text-ink-soft">{formatNaira(Number(j.fee ?? 0))}</td>
+                    <td className="px-5 py-3 text-ink-soft">
+                      {j.market_value
+                        ? formatNaira(Number(j.market_value))
+                        : `Fee: ${formatNaira(Number(j.fee ?? 0))}`}
+                    </td>
                     <td className="px-5 py-3">
                       <span className="text-xs uppercase tracking-wide font-medium px-2 py-0.5 rounded bg-brass/10 text-brass-deep">
                         {STAGE_LABEL[j.stage] ?? j.stage}
