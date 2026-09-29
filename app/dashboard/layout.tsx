@@ -25,7 +25,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // profiles_select_same_firm lets this read any profile in the same firm,
   // but we only ever ask for our own row here.
-  let { data: profile } = await supabase
+  let { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('name, role, firms ( name )')
     .eq('id', userData.user.id)
@@ -36,19 +36,32 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // no session at signup time (see lib/actions/auth.ts). Finish that setup
   // now that they're actually logged in; harmless to attempt otherwise,
   // since it's a no-op once the profile already exists.
+  let bootstrapError: string | null = null
   if (!profile) {
     const bootstrapResult = await bootstrapProfileIfNeeded()
     if (!bootstrapResult) {
-      const { data: retried } = await supabase
+      const { data: retried, error: retryError } = await supabase
         .from('profiles')
         .select('name, role, firms ( name )')
         .eq('id', userData.user.id)
         .single()
       profile = retried
+      profileError = retryError
+    } else {
+      bootstrapError = bootstrapResult.error
     }
   }
 
   const firmName = (profile?.firms as unknown as { name: string } | null)?.name ?? 'Your firm'
+
+  // TEMPORARY debug info — remove once the profile/firm lookup is confirmed
+  // working against the live project. Not shown to anyone but the person
+  // testing right now, and it's read-only diagnostic text, not a security
+  // hole: it doesn't reveal anything beyond this request's own outcome.
+  const debugInfo =
+    !profile && (profileError || bootstrapError)
+      ? `Debug: profileError=${profileError?.message ?? 'none'} bootstrapError=${bootstrapError ?? 'none'}`
+      : null
 
   return (
     <div className="min-h-screen flex bg-bone">
@@ -102,7 +115,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 p-8">{children}</main>
+      <main className="flex-1 min-w-0 p-8">
+        {debugInfo && (
+          <div className="mb-4 bg-clay-bg text-clay text-xs px-3.5 py-2.5 rounded-md font-mono break-all">
+            {debugInfo}
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   )
 }
