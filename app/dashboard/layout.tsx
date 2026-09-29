@@ -13,6 +13,7 @@ const NAV_LIVE = [
   { href: '/dashboard/rent', label: 'Rent ledger' },
   { href: '/dashboard/valuations', label: 'Valuations' },
   { href: '/dashboard/documents', label: 'Documents' },
+  { href: '/dashboard/reports', label: 'Reports' },
 ]
 
 const NAV_COMING_SOON: string[] = []
@@ -55,7 +56,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen flex bg-bone">
-      <aside className="w-60 flex-shrink-0 bg-ink text-bone flex flex-col">
+      <aside className="no-print w-60 flex-shrink-0 bg-ink text-bone flex flex-col">
         <div className="px-5 py-6 flex items-center gap-2.5 border-b border-white/10">
           <svg width="22" height="22" viewBox="0 0 26 26" fill="none" className="flex-shrink-0">
             <circle cx="13" cy="13" r="12" stroke="#A9814F" strokeWidth="1.4" />
@@ -106,7 +107,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </aside>
 
       <main className="flex-1 min-w-0 p-8">
-        <div className="mb-6">
+        <div className="no-print mb-6">
           <GlobalSearch />
         </div>
         {children}

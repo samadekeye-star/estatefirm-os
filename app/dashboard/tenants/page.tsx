@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { NewTenantForm } from './new-tenant-form'
 
@@ -35,7 +36,11 @@ export default async function TenantsPage() {
             <tbody>
               {tenants.map((t) => (
                 <tr key={t.id} className="border-b border-line last:border-b-0">
-                  <td className="px-5 py-3 text-ink font-medium">{t.name}</td>
+                  <td className="px-5 py-3 text-ink font-medium">
+                    <Link href={`/dashboard/tenants/${t.id}`} className="hover:text-brass-deep">
+                      {t.name}
+                    </Link>
+                  </td>
                   <td className="px-5 py-3 text-ink-soft">
                     {t.phone ?? '—'}
                     {t.email ? ` · ${t.email}` : ''}

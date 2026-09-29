@@ -36,3 +36,18 @@ body {
   background: var(--bone);
   color: var(--ink);
 }
+
+/* Reports print as clean documents: no sidebar, no search bar, no buttons,
+   white background instead of the app's off-white. Applied via the
+   `no-print` class on the sidebar/search chrome and on in-page controls. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  main {
+    padding: 0 !important;
+  }
+}
